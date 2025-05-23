@@ -107,4 +107,21 @@ int main() {
 #else
   print("STANDARD LIBRARY VERSION\n");
 #endif
-  
+vector<Orc*> orcs;
+orcs.reserve(Orc::NB_MAX);
+auto [r0, dt0] = test([&orcs] {
+  for(int i = 0; i != Orc::NB_MAX; ++i)
+    orcs.push_back(new Orc);
+  return size(orcs);
+});
+// ...
+// CARNAGE (CENSORED)
+// ...
+auto [r1, dt1] = test([&orcs] {
+  for(auto p : orcs)
+    delete p;
+  return size(orcs);
+});
+  print("Construction: {} orcs in {}\n", size(orcs), duration_cast<microseconds>(dt0));
+  print("Destruction:  {} orcs in {}\n", size(orcs), duration_cast<microseconds>(dt1));
+}
