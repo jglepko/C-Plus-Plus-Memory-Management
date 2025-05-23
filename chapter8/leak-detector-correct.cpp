@@ -34,26 +34,30 @@ void operator delete[](void*) noexcept;
 // #include "leak_detector.h"
 #include <cstdlib>
 void *operator new(std::size_t n) {
-  void *p = std::malloc(n);
+  void *p = std::malloc(n + sizeof(std::max_align_t));
   if(!p) throw std::bad_alloc{};
+  new (p) std::size_t{ n };
   Accountant::get().take(n);
-  return p;
+  return static_cast<std::max_align_t*>(p) + 1;
 }
 void *operator new[](std::size_t n) {
-  void *p = std::malloc(n);
+  void *p = std::malloc(n + sizeof(std::max_align_t));
   if(!p) throw std::bad_alloc{};
+  new (p) std::size_t{ n };
   Accountant::get().take(n);
-  return p;
+  return static_cast<std::max_align_t*>(p) + 1;
 }
 
-void operator delete(void *p, std::size_t n) noexcept {
+void operator delete(void *p) noexcept {
   if(!p) return;
-  Accountant::get().give_back(n);
+  p = static_cast<std::max_align_t*>(p) - 1;
+  Accountant::get().give_back(*static_cast<std::size_t*>(p));
   std::free(p);
 }
 void operator delete[](void *p, std::size_t n) noexcept {
   if(!p) return;
-  Accountant::get().give_back(n);
+  p = static_cast<std::max_align_t*>(p) - 1;
+  Accountant::get().give_back(*static_cast<std::size_t*>(p));
   std::free(p);
 }
 
@@ -62,8 +66,9 @@ int main() {
   auto pre = Accountant::get().how_much();
   { // BEGIN
     int *p = new int{ 3 };
-    int *q = new int[10]{ };
+    int *q = new int[10]{ }; // initialized to zero
     delete p;
+    // oops! Forgot to delete[] q
   } // END
   auto post = Accountant::get().how_much();
   if(post != pre) 
